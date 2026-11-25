@@ -106,7 +106,7 @@ class PlannerApp:
         sections = (
             ("Файл", (("Выход", self.close),)),
             ("Задачи", self.actions),
-            ("Вид", (("Сегодня", lambda: self.change_day(0)),)),
+            ("Вид", (("Размер окна…", self.size_dialog), ("Сегодня", lambda: self.change_day(0)))),
             ("Справка", (("Как пользоваться", self.show_help),)),
         )
         for title, commands in sections:
@@ -256,6 +256,28 @@ class PlannerApp:
         if task and messagebox.askyesno("Удаление задачи", f"Удалить «{task['title']}»?", parent=self.root):
             if self.commit([item for item in self.tasks if item["id"] != task["id"]], self.size):
                 self.refresh()
+
+    def size_dialog(self):
+        fields = ((f"Ширина ({MIN_WIDTH}–{self.max_width} пикс.)", self.size[0]),
+                  (f"Высота ({MIN_HEIGHT}–{self.max_height} пикс.)", self.size[1]))
+        dialog, entries = self.form("Размер окна", fields, 14)
+
+        def apply():
+            try:
+                width, height = (int(entry.get()) for entry in entries)
+                if not (MIN_WIDTH <= width <= self.max_width and MIN_HEIGHT <= height <= self.max_height):
+                    raise ValueError
+            except ValueError:
+                self.error("Введите целые числа в указанных диапазонах.", dialog)
+                return
+            if self.read_only or self.commit(self.tasks, (width, height), dialog):
+                self.size = (width, height)
+                self.root.state("normal")
+                self.root.geometry(f"{width}x{height}")
+                dialog.destroy()
+
+        self.dialog_buttons(dialog, 2, "Применить", apply)
+        entries[0].focus_set()
 
     def remember_size(self, event):
         if event.widget is self.root and self.root.state() == "normal":
